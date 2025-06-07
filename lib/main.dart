@@ -1,21 +1,29 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 // Sesuaikan path import ini dengan struktur folder dan nama proyek Anda
 // Nama paket Anda adalah 'alfaoptik' berdasarkan import Anda.
 import 'package:alfaoptik/screens/login_page.dart';
-import 'package:alfaoptik/screens/dashboard_page.dart';
 import 'package:alfaoptik/screens/pos/pos_page.dart'; // Mengimpor POSPage, yang mungkin juga mengimpor Product dan CartItem
 import 'package:alfaoptik/screens/inventory/add_product_form.dart';
 import 'package:alfaoptik/screens/checkout/checkout_page.dart';
 import 'package:alfaoptik/screens/receipt/receipt_page.dart'; // Pastikan import ini ada
+import 'package:alfaoptik/screens/reports/reports_page.dart';
+import 'package:alfaoptik/screens/inventory/inventory_list_page.dart';
+
 
 // Jika CartItem didefinisikan di dalam pos_page.dart (seperti contoh kita sebelumnya),
 // import pos_page.dart di atas sudah cukup agar CartItem dikenal di onGenerateRoute.
 // Jika Anda memindahkannya ke file model terpisah, misalnya:
 // import 'package:alfaoptik/models/cart_item.dart'; // (Contoh jika ada file model terpisah)
 
-void main() {
+Future<void> main() async { // <-- UBAH menjadi Future<void> dan tambahkan async
+  // Baris ini penting untuk memastikan Flutter siap sebelum menjalankan kode async di main
+  WidgetsFlutterBinding.ensureInitialized(); 
+  
+  // Memuat data lokalisasi untuk Bahasa Indonesia
+  await initializeDateFormatting('id_ID', null); 
   runApp(const MyApp());
 }
 
@@ -69,9 +77,10 @@ class MyApp extends StatelessWidget {
       routes: {
         // Rute yang tidak memerlukan argumen khusus saat navigasi
         '/login': (context) => const LoginPage(),
-        '/dashboard': (context) => const DashboardPage(), // Jika masih digunakan
+        '/inventoryList': (context) => const InventoryListPage(),
         '/pos': (context) => const POSPage(),
         '/addProduct': (context) => const AddProductForm(),
+        '/reports': (context) => const ReportsPage(),
         // Rute '/checkout' dan '/receipt' akan ditangani oleh onGenerateRoute karena memerlukan argumen
       },
       onGenerateRoute: (settings) {

@@ -1,10 +1,7 @@
 // lib/screens/pos/pos_page.dart
 import 'package:flutter/material.dart';
-// Impor ProductService dan model Product (jika Product tidak didefinisikan di sini lagi)
+import 'package:alfaoptik/widgets/app_drawer.dart';
 import '../../services/product_service.dart'; // Sesuaikan path jika perlu
-
-// Hapus definisi class Product dan CartItem dari sini jika sudah ada di product_service.dart
-// atau di file model terpisah. Untuk contoh ini, kita anggap Product diimpor.
 
 class CartItem { // CartItem bisa tetap di sini atau dipindah ke model
   final Product product;
@@ -372,7 +369,7 @@ class _POSPageState extends State<POSPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Alfa Optik - Transaksi POS'),
+        title: const Text('Alfa Optik'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -381,37 +378,7 @@ class _POSPageState extends State<POSPage> {
           ),
         ],
       ),
-      drawer: Drawer( // Salin Drawer dari kode sebelumnya
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.blueAccent),
-              child: Text('Menu Utama', style: TextStyle(color: Colors.white, fontSize: 24)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.dashboard_outlined),
-              title: const Text('Dashboard Ringkasan'),
-              onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/dashboard'); },
-            ),
-            ListTile(
-              leading: const Icon(Icons.inventory_2_outlined),
-              title: const Text('Manajemen Inventaris'),
-              onTap: () { Navigator.pop(context); /* Navigasi ke daftar inventaris */ },
-            ),
-            ListTile(
-              leading: const Icon(Icons.add_box_outlined),
-              title: const Text('Tambah Produk Baru'),
-              onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/addProduct'); },
-            ),
-            ListTile(
-              leading: const Icon(Icons.assessment_outlined),
-              title: const Text('Laporan'),
-              onTap: () { Navigator.pop(context); /* Navigasi ke laporan */ },
-            ),
-          ],
-        ),
-      ),
+    drawer: const AppDrawer(),
       body: isTwoColumnLayout
           ? Row(children: [productListSection, shoppingCartSection])
           : Column(children: [Expanded(child: productListSection), SizedBox(height: MediaQuery.of(context).size.height * 0.45, child: shoppingCartSection)]),
