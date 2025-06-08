@@ -1,7 +1,8 @@
 // lib/screens/pos/pos_page.dart
 import 'package:flutter/material.dart';
 import 'package:alfaoptik/widgets/app_drawer.dart';
-import '../../services/product_service.dart'; // Sesuaikan path jika perlu
+import '../../services/product_service.dart';
+import '../scanner/barcode_scanner_page.dart';
 
 class CartItem { // CartItem bisa tetap di sini atau dipindah ke model
   final Product product;
@@ -25,10 +26,12 @@ class _POSPageState extends State<POSPage> {
   List<Product> _filteredProducts = [];  // Produk yang ditampilkan setelah filter
   bool _isLoadingProducts = true;
   String? _productErrorMessage;
+  List<Product> _allProducts = [];
 
   // State untuk Keranjang Belanja
   final List<CartItem> _shoppingCart = [];
   final TextEditingController _searchController = TextEditingController();
+
 
   @override
   void initState() {
@@ -64,6 +67,40 @@ class _POSPageState extends State<POSPage> {
     }
   }
 
+Future<void> _findProductByBarcode(String barcode) async {
+  setState(() {
+    _isLoadingProducts = true; // Tampilkan loading
+    _productErrorMessage = null;
+  });
+
+  try {
+      // TODO: Buat metode baru di ProductService untuk mencari via barcode
+      // final Product? product = await _productService.fetchProductByBarcode(barcode);
+
+      // --- Simulasi untuk sekarang ---
+      // Cari dari daftar produk yang sudah di-fetch sebelumnya
+      final product = _allProducts.firstWhere(
+        (p) => p.product_code == barcode, // Asumsi barcode sama dengan product_code untuk tes
+        orElse: () => throw Exception('Produk tidak ditemukan'),
+      );
+      // --- Akhir Simulasi ---
+
+      if (product != null) {
+        _addToCart(product); // Langsung tambahkan ke keranjang
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${product.name} ditambahkan ke keranjang.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: Produk dengan barcode $barcode tidak ditemukan.')),
+      );
+    } finally {
+      setState(() {
+        _isLoadingProducts = false;
+      });
+    }
+  }
   // Jika pencarian ingin memanggil API (server-side search)
   // Future<void> _fetchProductsWithQuery(String query) async {
   //   setState(() {
@@ -211,22 +248,32 @@ class _POSPageState extends State<POSPage> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Cari produk (nama)...',
+                  hintText: 'Cari produk atau pindai barcode...',
                   prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
+                  suffixIcon: IconButton( // <-- TAMBAHKAN TOMBOL SCAN
+                    icon: const Icon(Icons.qr_code_scanner_outlined),
+                    tooltip: 'Pindai Barcode',
+                    onPressed: () async {
+                      // Navigasi ke halaman scanner dan tunggu hasilnya
+                      final String? barcode = await Navigator.push<String>(
+                        context,
+                        MaterialPageRoute(builder: (context) => const BarcodeScannerPage()),
+                      );
+
+                      if (barcode != null && barcode.isNotEmpty) {
+                        // TODO: Panggil API untuk mencari produk berdasarkan barcode ini
+                        print("Hasil scan diterima di POSPage: $barcode");
+                        // Hapus pencarian manual sebelumnya
+                        _searchController.clear();
+                        // Tampilkan hasil scan di kolom pencarian
+                        _searchController.text = barcode; 
+                        // Anda bisa langsung panggil API di sini atau biarkan _onSearchChanged yang menanganinya
+                        // jika backend diatur untuk mencari berdasarkan SKU/nama/barcode.
+                        // Untuk sekarang, kita akan membuat fungsi baru.
+                        _findProductByBarcode(barcode);
+                      }
+                    },
                   ),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear(); // Listener akan memanggil _onSearchChanged
-                          },
-                        )
-                      : null,
                 ),
               ),
             ),

@@ -47,13 +47,12 @@ class AppDrawer extends StatelessWidget {
                 ),
                 ListTile(
                   leading: const Icon(Icons.inventory_2_outlined),
-                  title: const Text('Manajemen Inventaris'),
-                  // Tandai sebagai terpilih jika rute saat ini adalah '/inventoryList'
-                  selected: currentRoute == '/inventoryList',
+                  title: const Text('Manajemen Stok'), // Ganti nama menu
+                  selected: currentRoute == '/stockManagement', // Sesuaikan nama rute
                   selectedTileColor: Colors.blueAccent.withOpacity(0.15),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/inventoryList');
+                    Navigator.pushNamed(context, '/stockManagement'); // Arahkan ke rute baru
                   },
                 ),
                 ListTile(

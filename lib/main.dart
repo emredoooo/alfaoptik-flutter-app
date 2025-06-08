@@ -10,7 +10,8 @@ import 'package:alfaoptik/screens/inventory/add_product_form.dart';
 import 'package:alfaoptik/screens/checkout/checkout_page.dart';
 import 'package:alfaoptik/screens/receipt/receipt_page.dart'; // Pastikan import ini ada
 import 'package:alfaoptik/screens/reports/reports_page.dart';
-import 'package:alfaoptik/screens/inventory/inventory_list_page.dart';
+import 'package:alfaoptik/screens/inventory/stock_management_page.dart';
+import 'package:alfaoptik/screens/inventory/add_stock_page.dart';
 
 
 // Jika CartItem didefinisikan di dalam pos_page.dart (seperti contoh kita sebelumnya),
@@ -75,13 +76,12 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/login', // Halaman awal aplikasi
       routes: {
-        // Rute yang tidak memerlukan argumen khusus saat navigasi
         '/login': (context) => const LoginPage(),
-        '/inventoryList': (context) => const InventoryListPage(),
+        '/stockManagement': (context) => const StockManagementPage(),
         '/pos': (context) => const POSPage(),
         '/addProduct': (context) => const AddProductForm(),
         '/reports': (context) => const ReportsPage(),
-        // Rute '/checkout' dan '/receipt' akan ditangani oleh onGenerateRoute karena memerlukan argumen
+        '/addStock': (context) => const AddStockPage(),
       },
       onGenerateRoute: (settings) {
         // Digunakan untuk rute yang memerlukan argumen atau logika khusus
