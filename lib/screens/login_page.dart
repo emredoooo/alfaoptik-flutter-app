@@ -1,5 +1,7 @@
-// lib/screens/login_page.dart (Mengembalikan Navigasi)
+// lib/screens/login_page.dart
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart'; // Impor service
+import '../models/user_session.dart';       // Impor session manager
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,6 +14,9 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService(); // Buat instance service
+
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -20,19 +25,45 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _login() { // Mengganti nama fungsi kembali ke _login (opsional)
+  // --- PERBARUI FUNGSI LOGIN ---
+  Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      // Form valid, lanjutkan dengan logika "login"
-      // Untuk saat ini, kita anggap login selalu berhasil dan langsung navigasi
-      print('Form valid. Melakukan navigasi...');
-      print('Username: ${_usernameController.text}');
-      print('Password: ${_passwordController.text}');
+      setState(() {
+        _isLoading = true;
+      });
 
-      // KEMBALIKAN NAVIGASI INI:
-      Navigator.pushReplacementNamed(context, '/pos');
+      try {
+        // Panggil API melalui service
+        final userData = await _authService.login(
+          _usernameController.text,
+          _passwordController.text,
+        );
 
-    } else {
-      print('Form tidak valid.');
+        // Jika berhasil, simpan data ke session
+        UserSession.setData(userData);
+        
+        if (mounted) {
+          // Navigasi ke halaman utama (POS)
+          Navigator.pushReplacementNamed(context, '/pos');
+        }
+
+      } catch (e) {
+        // Jika gagal, tampilkan pesan error
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Login Gagal: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -40,9 +71,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Anda bisa mengembalikan judul aslinya jika mau
         title: const Text('Login - Alfa Optik POS'),
-        // automaticallyImplyLeading: false, // Jika Anda tidak ingin tombol kembali
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -55,9 +84,7 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  // Anda bisa mengembalikan UI asli LoginPage jika mau,
-                  // seperti Text('Selamat Datang!') dll.
-                   const Text(
+                  const Text(
                     'Login Aplikasi',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -94,12 +121,19 @@ class _LoginPageState extends State<LoginPage> {
                     },
                   ),
                   const SizedBox(height: 24),
+                  // Tombol login yang menampilkan status loading
                   ElevatedButton(
-                    onPressed: _login, // Panggil fungsi _login
+                    onPressed: _isLoading ? null : _login,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16.0),
                     ),
-                    child: const Text('Login'), // Kembalikan teks tombol
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          )
+                        : const Text('Login'),
                   ),
                 ],
               ),

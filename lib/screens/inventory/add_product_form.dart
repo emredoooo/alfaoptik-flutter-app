@@ -1,4 +1,8 @@
+// lib/screens/inventory/add_product_form.dart
+
+import 'package:alfaoptik/services/product_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import untuk input formatter
 
 class AddProductForm extends StatefulWidget {
   // Nanti bisa ditambahkan parameter seperti branchId jika diperlukan
@@ -10,19 +14,24 @@ class AddProductForm extends StatefulWidget {
 
 class _AddProductFormState extends State<AddProductForm> {
   final _formKey = GlobalKey<FormState>();
+  final _productService = ProductService();
+
+  bool _isLoading = false;
 
   // Controllers untuk setiap input field
   final _productNameController = TextEditingController();
   final _productCodeController = TextEditingController();
-  // Tambahkan controller lain sesuai field di database:
-  // _brandNameController, _descriptionController, _purchasePriceController,
-  // _sellingPriceController, _unitController, _initialStockController,
-  // _minStockLevelController
+  final _sellingPriceController = TextEditingController();
+  final _initialStockController = TextEditingController();
+  // --- BARU: Tambahkan controller untuk field baru ---
+  final _brandController = TextEditingController();
+  final _purchasePriceController = TextEditingController();
+  final _descriptionController = TextEditingController();
 
-  String? _selectedCategory; // Untuk dropdown kategori
+
+  String? _selectedCategory;
   bool _trackSerialBatch = false;
 
-  // Contoh daftar kategori (idealnya diambil dari database)
   final List<String> _categories = [
     'Frame Kacamata',
     'Lensa Kontak',
@@ -35,53 +44,56 @@ class _AddProductFormState extends State<AddProductForm> {
   void dispose() {
     _productNameController.dispose();
     _productCodeController.dispose();
-    // Dispose controller lainnya
+    _sellingPriceController.dispose();
+    _initialStockController.dispose();
+    // --- BARU: Jangan lupa dispose controller baru ---
+    _brandController.dispose();
+    _purchasePriceController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      // Jika form valid, kumpulkan data
-      final productName = _productNameController.text;
-      final productCode = _productCodeController.text;
-      // Ambil data dari controller lain
+      setState(() {
+        _isLoading = true;
+      });
 
-      print('Nama Produk: $productName');
-      print('Kode Produk: $productCode');
-      print('Kategori: $_selectedCategory');
-      print('Lacak Serial/Batch: $_trackSerialBatch');
-      // Print data lainnya
+      // --- DISESUAIKAN: Tambahkan data baru ke Map ---
+      Map<String, dynamic> productData = {
+        "name": _productNameController.text,
+        "product_code": _productCodeController.text,
+        "category": _selectedCategory,
+        "price": double.tryParse(_sellingPriceController.text) ?? 0,
+        "stock": int.tryParse(_initialStockController.text) ?? 0,
+        "track_serial_batch": _trackSerialBatch,
+        "brand": _brandController.text, // Data baru
+        "purchase_price": double.tryParse(_purchasePriceController.text) ?? 0, // Data baru
+        "description": _descriptionController.text, // Data baru
+        "branch_code": "TBB" 
+      };
 
-      // --- TAHAP SELANJUTNYA ---
-      // 1. Siapkan data untuk dikirim ke API (backend Node.js)
-      // Map<String, dynamic> productData = {
-      //   'productName': productName,
-      //   'productCode': productCode,
-      //   'categoryId': _selectedCategory, // (perlu mapping ke ID kategori)
-      //   'brandName': _brandNameController.text,
-      //   // ... field lainnya
-      //   'initialStock': int.tryParse(_initialStockController.text) ?? 0,
-      //   'branchId': 'ID_CABANG_SAAT_INI' // (didapat dari sesi login admin cabang)
-      // };
-
-      // 2. Panggil API untuk menyimpan produk baru
-      // try {
-      //   // Response response = await ApiService.post('/products/add', productData);
-      //   // if (response.statusCode == 201) {
-      //   //   ScaffoldMessenger.of(context).showSnackBar(
-      //   //     SnackBar(content: Text('Produk berhasil ditambahkan!')),
-      //   //   );
-      //   //   Navigator.pop(context); // Kembali ke halaman sebelumnya atau daftar produk
-      //   // } else {
-      //   //   // Tangani error dari server
-      //   // }
-      // } catch (e) {
-      //   // Tangani error koneksi atau lainnya
-      // }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Proses penambahan produk (simulasi)...')),
-      );
+      try {
+        await _productService.addProduct(productData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Produk berhasil ditambahkan!')),
+          );
+          Navigator.pop(context, true);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -107,7 +119,7 @@ class _AddProductFormState extends State<AddProductForm> {
                   return null;
                 },
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _productCodeController,
                 decoration: const InputDecoration(labelText: 'Kode Produk/SKU'),
@@ -118,7 +130,13 @@ class _AddProductFormState extends State<AddProductForm> {
                   return null;
                 },
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
+               // --- BARU: Tambahkan TextFormField untuk Merek ---
+              TextFormField(
+                controller: _brandController,
+                decoration: const InputDecoration(labelText: 'Merek Produk (Opsional)'),
+              ),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Kategori Produk'),
                 value: _selectedCategory,
@@ -135,21 +153,20 @@ class _AddProductFormState extends State<AddProductForm> {
                 },
                 validator: (value) => value == null ? 'Pilih kategori' : null,
               ),
-              const SizedBox(height: 10),
-              // Tambahkan TextFormField untuk:
-              // - Merek
-              // - Deskripsi
-              // - Harga Beli
-              // - Harga Jual (angka)
-              // - Satuan Produk
-              // - Stok Awal (angka)
-              // - Batas Stok Minimum (angka)
-              // - Upload Gambar (lebih kompleks, untuk awal bisa berupa input URL atau diabaikan)
-
+              const SizedBox(height: 12),
+              // --- BARU: Tambahkan TextFormField untuk Harga Beli ---
               TextFormField(
-                // controller: _sellingPriceController,
+                controller: _purchasePriceController,
+                decoration: const InputDecoration(labelText: 'Harga Beli (Opsional)'),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _sellingPriceController,
                 decoration: const InputDecoration(labelText: 'Harga Jual'),
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Harga jual tidak boleh kosong';
                   if (double.tryParse(value) == null) return 'Masukkan angka yang valid';
@@ -157,11 +174,12 @@ class _AddProductFormState extends State<AddProductForm> {
                   return null;
                 },
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
-                // controller: _initialStockController,
+                controller: _initialStockController,
                 decoration: const InputDecoration(labelText: 'Stok Awal'),
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Stok awal tidak boleh kosong';
                   if (int.tryParse(value) == null) return 'Masukkan angka bulat yang valid';
@@ -169,7 +187,14 @@ class _AddProductFormState extends State<AddProductForm> {
                   return null;
                 },
               ),
-               const SizedBox(height: 10),
+              const SizedBox(height: 12),
+              // --- BARU: Tambahkan TextFormField untuk Deskripsi ---
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Deskripsi (Opsional)'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
               SwitchListTile(
                 title: const Text('Lacak Nomor Seri/Batch'),
                 value: _trackSerialBatch,
@@ -180,9 +205,19 @@ class _AddProductFormState extends State<AddProductForm> {
                 },
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _submitForm,
-                child: const Text('Simpan Produk'),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _submitForm,
+                icon: _isLoading
+                    ? Container(
+                        width: 24,
+                        height: 24,
+                        padding: const EdgeInsets.all(2.0),
+                        child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(_isLoading ? 'Menyimpan...' : 'Simpan Produk'),
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14)),
               ),
             ],
           ),

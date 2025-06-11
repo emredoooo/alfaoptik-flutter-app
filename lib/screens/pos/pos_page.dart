@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:alfaoptik/widgets/app_drawer.dart';
 import '../../services/product_service.dart';
 import '../scanner/barcode_scanner_page.dart';
+import '../../models/user_session.dart';
 
 class CartItem { // CartItem bisa tetap di sini atau dipindah ke model
   final Product product;
@@ -47,16 +48,20 @@ class _POSPageState extends State<POSPage> {
     super.dispose();
   }
 
-  Future<void> _fetchInitialProducts() async {
+ Future<void> _fetchInitialProducts() async {
     setState(() {
       _isLoadingProducts = true;
       _productErrorMessage = null;
     });
     try {
-      final products = await _productService.fetchProducts();
+      // Ambil produk berdasarkan branchCode dari user yang sedang login
+      final products = await _productService.fetchProducts(
+        branchCode: UserSession.branchCode, // Gunakan data dari sesi
+      );
       setState(() {
+        _allProducts = products; // Simpan semua produk untuk pencarian barcode
         _availableProducts = products;
-        _filteredProducts = List.from(_availableProducts); // Awalnya tampilkan semua
+        _filteredProducts = List.from(_availableProducts);
         _isLoadingProducts = false;
       });
     } catch (e) {

@@ -3,24 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 // Sesuaikan path import ini dengan struktur folder dan nama proyek Anda
-// Nama paket Anda adalah 'alfaoptik' berdasarkan import Anda.
 import 'package:alfaoptik/screens/login_page.dart';
-import 'package:alfaoptik/screens/pos/pos_page.dart'; // Mengimpor POSPage, yang mungkin juga mengimpor Product dan CartItem
+import 'package:alfaoptik/screens/pos/pos_page.dart';
 import 'package:alfaoptik/screens/inventory/add_product_form.dart';
 import 'package:alfaoptik/screens/checkout/checkout_page.dart';
-import 'package:alfaoptik/screens/receipt/receipt_page.dart'; // Pastikan import ini ada
+import 'package:alfaoptik/screens/receipt/receipt_page.dart';
 import 'package:alfaoptik/screens/reports/reports_page.dart';
 import 'package:alfaoptik/screens/inventory/stock_management_page.dart';
 import 'package:alfaoptik/screens/inventory/add_stock_page.dart';
+import 'package:alfaoptik/screens/admin/user_management_page.dart';
 
-
-// Jika CartItem didefinisikan di dalam pos_page.dart (seperti contoh kita sebelumnya),
-// import pos_page.dart di atas sudah cukup agar CartItem dikenal di onGenerateRoute.
-// Jika Anda memindahkannya ke file model terpisah, misalnya:
-// import 'package:alfaoptik/models/cart_item.dart'; // (Contoh jika ada file model terpisah)
-
-Future<void> main() async { // <-- UBAH menjadi Future<void> dan tambahkan async
-  // Baris ini penting untuk memastikan Flutter siap sebelum menjalankan kode async di main
+Future<void> main() async { 
   WidgetsFlutterBinding.ensureInitialized(); 
   
   // Memuat data lokalisasi untuk Bahasa Indonesia
@@ -77,11 +70,11 @@ class MyApp extends StatelessWidget {
       initialRoute: '/login', // Halaman awal aplikasi
       routes: {
         '/login': (context) => const LoginPage(),
-        '/stockManagement': (context) => const StockManagementPage(),
         '/pos': (context) => const POSPage(),
+        '/stockManagement': (context) => const StockManagementPage(),
         '/addProduct': (context) => const AddProductForm(),
         '/reports': (context) => const ReportsPage(),
-        '/addStock': (context) => const AddStockPage(),
+        '/userManagement': (context) => const UserManagementPage(),
       },
       onGenerateRoute: (settings) {
         // Digunakan untuk rute yang memerlukan argumen atau logika khusus

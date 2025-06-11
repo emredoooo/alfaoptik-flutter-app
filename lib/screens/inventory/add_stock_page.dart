@@ -1,6 +1,6 @@
 // lib/screens/inventory/add_stock_page.dart
 import 'package:flutter/material.dart';
-import 'package:alfaoptik/services/product_service.dart'; // Untuk mengakses model Product
+import 'package:alfaoptik/services/product_service.dart'; // Untuk mengakses model Product dan service
 
 class AddStockPage extends StatefulWidget {
   const AddStockPage({super.key});
@@ -17,13 +17,9 @@ class _AddStockPageState extends State<AddStockPage> {
   final TextEditingController _quantityController = TextEditingController();
   bool _isLoading = false;
 
-  // Fungsi untuk menampilkan dialog pencarian produk
+  // Fungsi _selectProduct tidak ada perubahan...
   Future<void> _selectProduct() async {
-    // Nantinya, ini bisa menjadi halaman pencarian produk yang lebih canggih.
-    // Untuk sekarang, kita tampilkan dialog sederhana dengan daftar produk dari API.
-    final List<Product> products = await _productService.fetchProducts(branchCode: 'TBB'); // Ambil semua produk
-
-    // ignore: use_build_context_synchronously
+    final List<Product> products = await _productService.fetchProducts(branchCode: 'TBB');
     final Product? selected = await showDialog<Product>(
       context: context,
       builder: (context) => AlertDialog(
@@ -46,7 +42,6 @@ class _AddStockPageState extends State<AddStockPage> {
         ),
       ),
     );
-
     if (selected != null) {
       setState(() {
         _selectedProduct = selected;
@@ -54,8 +49,8 @@ class _AddStockPageState extends State<AddStockPage> {
     }
   }
 
-  // Fungsi untuk memproses penambahan stok
-  void _submitAddStock() {
+  // --- PERBARUI FUNGSI _submitAddStock MENJADI SEPERTI INI ---
+  void _submitAddStock() async { // Jadikan async
     if (_formKey.currentState!.validate()) {
       if (_selectedProduct == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -68,27 +63,30 @@ class _AddStockPageState extends State<AddStockPage> {
 
       final int quantityToAdd = int.parse(_quantityController.text);
 
-      // TODO: Panggil InventoryService untuk mengirim data ke API
-      // await InventoryService.addStock(
-      //   productId: _selectedProduct!.id,
-      //   branchId: 1, // Placeholder untuk ID cabang 'TBB'
-      //   quantity: quantityToAdd,
-      // );
-
-      // --- Simulasi untuk sekarang ---
-      print('Menambah stok untuk produk ID: ${_selectedProduct!.id}');
-      print('Cabang ID: 1 (Placeholder)');
-      print('Jumlah ditambahkan: $quantityToAdd');
-
-      Future.delayed(const Duration(seconds: 1)).then((_) {
+      try {
+        await _productService.addStock(
+          productId: _selectedProduct!.id,
+          quantity: quantityToAdd,
+        );
+        
         if (mounted) {
-          setState(() { _isLoading = false; });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Stok berhasil ditambahkan! (Simulasi)')),
+            const SnackBar(content: Text('Stok berhasil ditambahkan!')),
           );
           Navigator.of(context).pop(true); // Kirim 'true' untuk menandakan ada update
         }
-      });
+
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() { _isLoading = false; });
+        }
+      }
     }
   }
 
@@ -98,6 +96,7 @@ class _AddStockPageState extends State<AddStockPage> {
     super.dispose();
   }
 
+  // --- Widget build tidak ada perubahan signifikan, hanya pastikan tombol memanggil _submitAddStock ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,7 +109,7 @@ class _AddStockPageState extends State<AddStockPage> {
           key: _formKey,
           child: ListView(
             children: [
-              // --- Pemilihan Produk ---
+              // Pemilihan Produk (tidak berubah)
               InkWell(
                 onTap: _selectProduct,
                 child: InputDecorator(
@@ -129,7 +128,7 @@ class _AddStockPageState extends State<AddStockPage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Input Kuantitas ---
+              // Input Kuantitas (tidak berubah)
               TextFormField(
                 controller: _quantityController,
                 keyboardType: TextInputType.number,
@@ -153,7 +152,7 @@ class _AddStockPageState extends State<AddStockPage> {
               ),
               const SizedBox(height: 32),
 
-              // --- Tombol Simpan ---
+              // Tombol Simpan
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _submitAddStock,
                 icon: _isLoading

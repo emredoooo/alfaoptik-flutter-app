@@ -6,6 +6,7 @@ import '../pos/pos_page.dart';
 import '../../services/customer_service.dart';
 import '../../services/transaction_service.dart';
 import '../../models/customer_model.dart';
+import '../../models/user_session.dart';
 
 // Fungsi format mata uang
 String formatCurrency(double amount, {String locale = 'id_ID', String symbol = 'Rp '}) {
@@ -171,7 +172,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     // Perbaikan Error Tipe Data: Deklarasikan tipe Map secara eksplisit
     final Map<String, dynamic> transactionPayload = {
-      "branch_code": "TBB",
+      // Ambil data dari UserSession
+      "branch_code": UserSession.branchCode, 
+      "user_id": UserSession.userId,
+      
       "items": widget.cartItems.map((item) => {
         "product_id": item.product.id, "product_name": item.product.name,
         "quantity": item.quantity, "price_per_item": item.product.price, "subtotal": item.totalPrice,
@@ -183,13 +187,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       "reference_number": _referenceNumberController.text,
       "notes": _notesController.text,
       "customer_data": (_foundCustomer != null || (_isNewCustomer && _customerNameController.text.isNotEmpty))
-          ? {
-              "customer_id": _foundCustomer?.id,
-              "phone_number": _customerPhoneController.text.trim(),
-              "name": _customerNameController.text.trim(),
-              "address": _customerAddressController.text.trim(),
-              "date_of_birth": _customerDobController.text.trim(),
-            }
+          ? { "customer_id": _foundCustomer?.id, "phone_number": _customerPhoneController.text.trim(), /* ... data customer lainnya */ }
           : null,
     };
 

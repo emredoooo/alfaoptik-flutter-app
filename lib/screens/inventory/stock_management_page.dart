@@ -2,6 +2,7 @@
 import 'package:alfaoptik/services/product_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../models/user_session.dart';
 
 String formatCurrency(double amount) => 'Rp ${NumberFormat('#,###', 'id_ID').format(amount)}';
 
@@ -36,8 +37,10 @@ class _StockManagementPageState extends State<StockManagementPage> {
 
   Future<List<Product>> _fetchInventory() async {
     try {
-      // Kirim kode cabang saat fetch data
-      final products = await _productService.fetchProducts(branchCode: 'TBB');
+      // Ambil produk berdasarkan branchCode dari user yang sedang login
+      final products = await _productService.fetchProducts(
+        branchCode: UserSession.branchCode, // Gunakan data dari sesi
+      );
       if (mounted) {
         setState(() {
           _allProducts = products;
@@ -62,11 +65,32 @@ class _StockManagementPageState extends State<StockManagementPage> {
   }
 
   @override
+
   Widget build(BuildContext context) {
     return Scaffold(
+      // AppBar disesuaikan di bagian 'actions'
       appBar: AppBar(
         title: const Text('Manajemen Stok'),
+        // --- KEDUA TOMBOL DITARUH DI SINI ---
         actions: [
+          // Tombol 1: Tambah Produk Baru (dengan teks agar lebih jelas)
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pushNamed(context, '/addProduct').then((_) {
+                // Refresh daftar inventaris setelah kembali dari halaman tambah produk
+                setState(() {
+                  _inventoryFuture = _fetchInventory();
+                });
+              });
+            },
+            icon: const Icon(Icons.post_add_outlined),
+            label: const Text('Produk Baru'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white, // Menyesuaikan warna dengan tema AppBar
+            ),
+          ),
+
+          // Tombol 2: Tambah Stok (hanya ikon untuk aksi cepat)
           IconButton(
             icon: const Icon(Icons.add_shopping_cart),
             tooltip: 'Tambah Stok',
@@ -81,7 +105,9 @@ class _StockManagementPageState extends State<StockManagementPage> {
               });
             },
           ),
+          const SizedBox(width: 8), // Memberi sedikit jarak di ujung
         ],
+        // Bagian 'bottom' untuk search bar tidak berubah
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60.0),
           child: Padding(
@@ -103,6 +129,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
           ),
         ),
       ),
+      // Body tidak ada perubahan
       body: RefreshIndicator(
         onRefresh: _fetchInventory,
         child: FutureBuilder<List<Product>>(
@@ -131,7 +158,6 @@ class _StockManagementPageState extends State<StockManagementPage> {
               itemCount: _filteredProducts.length,
               itemBuilder: (context, index) {
                 final item = _filteredProducts[index];
-
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                   child: ListTile(
@@ -143,7 +169,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          'Stok: ${item.stock}', // <-- GUNAKAN DATA STOK ASLI
+                          'Stok: ${item.stock}',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -164,18 +190,8 @@ class _StockManagementPageState extends State<StockManagementPage> {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.pushNamed(context, '/addProduct').then((_) {
-            // Refresh daftar inventaris setelah kembali dari halaman tambah produk
-            setState(() {
-              _inventoryFuture = _fetchInventory();
-            });
-          });
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Tambah Produk'),
-      ),
+      // --- DIHAPUS ---
+      // floatingActionButton: FloatingActionButton.extended(...)
     );
   }
 }
