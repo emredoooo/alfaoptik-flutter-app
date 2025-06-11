@@ -103,7 +103,11 @@ Pastikan perangkat Anda sudah terinstal:
 - `nodemon` (opsional, untuk auto-restart server): `npm install -g nodemon`
 
 ## Panduan Instalasi
+## Repositori Backend
 
+Kode untuk server API (Node.js) untuk proyek ini berada di repositori terpisah. Kunjungi di sini:
+
+➡️ **[emredoooo/alfaoptik-backend](https://github.com/emredoooo/alfaoptik-backend)**
 ### Backend (Node.js)
 
 1.  **Navigasi ke Folder Backend**:
