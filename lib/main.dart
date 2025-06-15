@@ -12,6 +12,7 @@ import 'package:alfaoptik/screens/reports/reports_page.dart';
 import 'package:alfaoptik/screens/inventory/stock_management_page.dart';
 import 'package:alfaoptik/screens/inventory/add_stock_page.dart';
 import 'package:alfaoptik/screens/admin/user_management_page.dart';
+import 'package:alfaoptik/screens/history/transaction_history_page.dart';
 
 Future<void> main() async { 
   WidgetsFlutterBinding.ensureInitialized(); 
@@ -75,6 +76,7 @@ class MyApp extends StatelessWidget {
         '/addProduct': (context) => const AddProductForm(),
         '/reports': (context) => const ReportsPage(),
         '/userManagement': (context) => const UserManagementPage(),
+        '/history': (context) => const TransactionHistoryPage(),
       },
       onGenerateRoute: (settings) {
         // Digunakan untuk rute yang memerlukan argumen atau logika khusus

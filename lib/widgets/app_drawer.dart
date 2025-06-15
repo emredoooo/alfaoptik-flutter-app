@@ -13,22 +13,18 @@ class AppDrawer extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          // --- HEADER DRAWER DISESUAIKAN ---
           UserAccountsDrawerHeader(
             decoration: const BoxDecoration(
               color: Colors.blueAccent,
             ),
-            // Tampilkan nama cabang dari sesi
             accountName: Text(
               UserSession.branchName ?? 'Nama Cabang',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
-            // Tampilkan username dari sesi
             accountEmail: Text('User: ${UserSession.username ?? ''}'),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Colors.white,
               child: Text(
-                // Ambil inisial dari nama cabang
                 UserSession.branchName?.substring(0, 1) ?? 'A',
                 style: const TextStyle(fontSize: 40.0, color: Colors.blueAccent),
               ),
@@ -46,7 +42,6 @@ class AppDrawer extends StatelessWidget {
                   selectedTileColor: Colors.blueAccent.withOpacity(0.15),
                   onTap: () {
                     Navigator.pop(context);
-                    // Gunakan pushReplacementNamed jika sudah di halaman POS agar tidak menumpuk
                     if (currentRoute != '/pos') {
                       Navigator.pushReplacementNamed(context, '/pos');
                     }
@@ -65,6 +60,18 @@ class AppDrawer extends StatelessWidget {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.history_outlined),
+                  title: const Text('Riwayat Transaksi'),
+                  selected: currentRoute == '/history',
+                  selectedTileColor: Colors.blueAccent.withOpacity(0.15),
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (currentRoute != '/history') {
+                        Navigator.pushNamed(context, '/history');
+                    }
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.add_box_outlined),
                   title: const Text('Tambah Produk Baru'),
                   selected: currentRoute == '/addProduct',
@@ -76,9 +83,11 @@ class AppDrawer extends StatelessWidget {
                     }
                   },
                 ),
-                // --- CONTOH ROLE-BASED ACCESS ---
-                // Tampilkan menu Laporan hanya jika rolenya 'Admin Pusat'
-                if (UserSession.role == 'Admin Pusat')
+                
+                // --- LOGIKA PERAN YANG DIPERBAIKI ---
+
+                // Menu Laporan Penjualan (Tampil untuk Admin Pusat & Admin Cabang)
+                if (UserSession.role == 'Admin Pusat' || UserSession.role == 'Admin Cabang')
                   ListTile(
                     leading: const Icon(Icons.bar_chart_outlined),
                     title: const Text('Laporan Penjualan'),
@@ -91,14 +100,9 @@ class AppDrawer extends StatelessWidget {
                       }
                     },
                   ),
-                if (UserSession.role == 'Admin Pusat') ...[
-                  ListTile(
-                    leading: const Icon(Icons.bar_chart_outlined),
-                    title: const Text('Laporan Penjualan'),
-                    selected: currentRoute == '/reports',
-                    // ... (onTap Laporan)
-                  ),
-                  // --- TAMBAHKAN MENU BARU DI SINI ---
+
+                // Menu Manajemen Pengguna (Hanya Tampil untuk Admin Pusat)
+                if (UserSession.role == 'Admin Pusat')
                   ListTile(
                     leading: const Icon(Icons.manage_accounts_outlined),
                     title: const Text('Manajemen Pengguna'),
@@ -111,30 +115,30 @@ class AppDrawer extends StatelessWidget {
                       }
                     },
                   ),
-                ],  
+                
+                // --- AKHIR LOGIKA PERAN ---
+
                 const Divider(),
                 ListTile(
                   leading: const Icon(Icons.help_outline),
                   title: const Text('Bantuan'),
                   onTap: () {
-                    // Logika bantuan tidak berubah
+                    // TODO: Arahkan ke halaman bantuan
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Fitur Bantuan akan segera hadir.")));
                   },
                 ),
-                // --- LOGOUT DISESUAIKAN ---
                 ListTile(
                   leading: const Icon(Icons.logout),
                   title: const Text('Logout'),
                   onTap: () {
-                    // 1. Bersihkan data sesi
                     UserSession.clear();
-                    // 2. Arahkan ke halaman login dan hapus semua rute sebelumnya
                     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
                   },
                 ),
               ],
             ),
           ),
-          // Footer tidak berubah
+          
           Padding(
             padding: const EdgeInsets.all(24.0),
             child: Text(

@@ -1,11 +1,11 @@
-// lib/screens/pos/pos_page.dart
+// lib/screens/pos/pos_page.dart (Versi Final Gabungan)
 import 'package:flutter/material.dart';
 import 'package:alfaoptik/widgets/app_drawer.dart';
 import '../../services/product_service.dart';
 import '../scanner/barcode_scanner_page.dart';
 import '../../models/user_session.dart';
 
-class CartItem { // CartItem bisa tetap di sini atau dipindah ke model
+class CartItem {
   final Product product;
   int quantity;
   CartItem({required this.product, this.quantity = 1});
@@ -20,24 +20,18 @@ class POSPage extends StatefulWidget {
 }
 
 class _POSPageState extends State<POSPage> {
-  final ProductService _productService = ProductService(); // Instance service
-
-  // State untuk data produk, loading, dan error
-  List<Product> _availableProducts = []; // Produk asli dari "API"
-  List<Product> _filteredProducts = [];  // Produk yang ditampilkan setelah filter
+  final ProductService _productService = ProductService();
+  List<Product> _availableProducts = [];
+  List<Product> _filteredProducts = [];
   bool _isLoadingProducts = true;
   String? _productErrorMessage;
-  List<Product> _allProducts = [];
-
-  // State untuk Keranjang Belanja
   final List<CartItem> _shoppingCart = [];
   final TextEditingController _searchController = TextEditingController();
-
 
   @override
   void initState() {
     super.initState();
-    _fetchInitialProducts(); // Ambil produk saat halaman dimuat
+    _fetchInitialProducts();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -48,127 +42,101 @@ class _POSPageState extends State<POSPage> {
     super.dispose();
   }
 
- Future<void> _fetchInitialProducts() async {
+  Future<void> _fetchInitialProducts() async {
     setState(() {
       _isLoadingProducts = true;
       _productErrorMessage = null;
     });
     try {
-      // Ambil produk berdasarkan branchCode dari user yang sedang login
+      // Default ke 'TBB' jika Admin Pusat tidak punya cabang, bisa disesuaikan
+      String? branchCodeToFetch = UserSession.branchCode ?? 'TBB';
+      if (UserSession.role == 'Admin Pusat' && _availableProducts.isNotEmpty) {
+        // Jika admin pusat, jangan fetch otomatis, biarkan dia pilih cabang di halaman lain
+        // Untuk halaman POS ini, kita asumsikan ia beroperasi di cabang default
+      }
+      
       final products = await _productService.fetchProducts(
-        branchCode: UserSession.branchCode, // Gunakan data dari sesi
+        branchCode: branchCodeToFetch,
       );
-      setState(() {
-        _allProducts = products; // Simpan semua produk untuk pencarian barcode
-        _availableProducts = products;
-        _filteredProducts = List.from(_availableProducts);
-        _isLoadingProducts = false;
-      });
-    } catch (e) {
-      setState(() {
-        _productErrorMessage = e.toString();
-        _isLoadingProducts = false;
-      });
-    }
-  }
-
-Future<void> _findProductByBarcode(String barcode) async {
-  setState(() {
-    _isLoadingProducts = true; // Tampilkan loading
-    _productErrorMessage = null;
-  });
-
-  try {
-      // TODO: Buat metode baru di ProductService untuk mencari via barcode
-      // final Product? product = await _productService.fetchProductByBarcode(barcode);
-
-      // --- Simulasi untuk sekarang ---
-      // Cari dari daftar produk yang sudah di-fetch sebelumnya
-      final product = _allProducts.firstWhere(
-        (p) => p.product_code == barcode, // Asumsi barcode sama dengan product_code untuk tes
-        orElse: () => throw Exception('Produk tidak ditemukan'),
-      );
-      // --- Akhir Simulasi ---
-
-      if (product != null) {
-        _addToCart(product); // Langsung tambahkan ke keranjang
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${product.name} ditambahkan ke keranjang.')),
-        );
+      if(mounted) {
+        setState(() {
+          _availableProducts = products;
+          _filteredProducts = List.from(_availableProducts);
+          _isLoadingProducts = false;
+        });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: Produk dengan barcode $barcode tidak ditemukan.')),
-      );
-    } finally {
-      setState(() {
-        _isLoadingProducts = false;
-      });
+      if(mounted) {
+        setState(() {
+          _productErrorMessage = e.toString();
+          _isLoadingProducts = false;
+        });
+      }
     }
   }
-  // Jika pencarian ingin memanggil API (server-side search)
-  // Future<void> _fetchProductsWithQuery(String query) async {
-  //   setState(() {
-  //     _isLoadingProducts = true; // Tampilkan loading untuk pencarian server-side
-  //     _productErrorMessage = null;
-  //   });
-  //   try {
-  //     final products = await _productService.fetchProducts(searchQuery: query);
-  //     setState(() {
-  //       _availableProducts = products; // Atau _filteredProducts langsung
-  //       _filteredProducts = List.from(_availableProducts);
-  //       _isLoadingProducts = false;
-  //     });
-  //   } catch (e) {
-  //     setState(() {
-  //       _productErrorMessage = e.toString();
-  //       _isLoadingProducts = false;
-  //     });
-  //   }
-  // }
 
   void _onSearchChanged() {
     String query = _searchController.text.toLowerCase();
-    // Untuk saat ini, kita tetap filter di client-side setelah data awal diambil
-    // Jika ingin server-side search, panggil _fetchProductsWithQuery(query)
     setState(() {
       if (query.isEmpty) {
         _filteredProducts = List.from(_availableProducts);
       } else {
         _filteredProducts = _availableProducts
-            .where((product) => product.name.toLowerCase().contains(query))
+            .where((product) =>
+                product.name.toLowerCase().contains(query) ||
+                (product.product_code?.toLowerCase().contains(query) ?? false))
             .toList();
       }
     });
   }
 
-  // --- Fungsi Logout, addToCart, calculateTotal, increment, decrement tetap sama ---
   void _logout(BuildContext context) {
-    Navigator.pushReplacementNamed(context, '/login');
+    // Implementasi logout Anda sudah benar
+    UserSession.clear();
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
+  // --- LOGIKA UTAMA YANG DIPERBAIKI ---
+
   void _addToCart(Product product) {
+    if (product.stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Stok produk ini telah habis.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
     setState(() {
-      var existingItemIndex =
-          _shoppingCart.indexWhere((item) => item.product.id == product.id);
+      final existingItemIndex = _shoppingCart.indexWhere((item) => item.product.id == product.id);
+
       if (existingItemIndex != -1) {
-        _shoppingCart[existingItemIndex].quantity++;
+        // Jika item sudah ada di keranjang, cek sebelum menambah
+        if (_shoppingCart[existingItemIndex].quantity < product.stock) {
+          _shoppingCart[existingItemIndex].quantity++;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Jumlah di keranjang sudah mencapai stok maksimum (${product.stock}).'), backgroundColor: Colors.orange));
+        }
       } else {
+        // Jika item baru, langsung tambahkan
         _shoppingCart.add(CartItem(product: product, quantity: 1));
       }
     });
   }
 
   double _calculateTotal() {
-    double total = 0;
-    for (var item in _shoppingCart) {
-      total += item.totalPrice;
-    }
-    return total;
+    return _shoppingCart.fold(0.0, (sum, item) => sum + item.totalPrice);
   }
 
   void _incrementQuantity(CartItem cartItem) {
-    setState(() { cartItem.quantity++; });
+    setState(() {
+      // Cek stok sebelum menambah jumlah
+      if (cartItem.quantity < cartItem.product.stock) {
+        cartItem.quantity++;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Stok maksimum untuk ${cartItem.product.name} adalah ${cartItem.product.stock}.'), backgroundColor: Colors.orange));
+      }
+    });
   }
 
   void _decrementQuantity(CartItem cartItem) {
@@ -180,6 +148,8 @@ Future<void> _findProductByBarcode(String barcode) async {
       }
     });
   }
+  
+  // --- AKHIR DARI LOGIKA YANG DIPERBAIKI ---
 
   @override
   Widget build(BuildContext context) {
@@ -191,19 +161,22 @@ Future<void> _findProductByBarcode(String barcode) async {
       productListContent = const Center(child: CircularProgressIndicator());
     } else if (_productErrorMessage != null) {
       productListContent = Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
-            Text('Gagal memuat produk: $_productErrorMessage', textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Coba Lagi'),
-              onPressed: _fetchInitialProducts,
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              Text('Gagal memuat produk: $_productErrorMessage', textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.refresh),
+                label: const Text('Coba Lagi'),
+                onPressed: _fetchInitialProducts,
+              ),
+            ],
+          ),
         ),
       );
     } else if (_filteredProducts.isEmpty) {
@@ -218,19 +191,27 @@ Future<void> _findProductByBarcode(String barcode) async {
       );
     } else {
       productListContent = ListView.builder(
+        padding: const EdgeInsets.only(top: 8),
         itemCount: _filteredProducts.length,
         itemBuilder: (context, index) {
           final product = _filteredProducts[index];
+          final bool isOutOfStock = product.stock <= 0;
           return Card(
-            margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
+            margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+            color: isOutOfStock ? Colors.grey.shade200 : Colors.white,
             child: ListTile(
-              title: Text(product.name),
-              subtitle: Text('Rp ${product.price.toStringAsFixed(0)}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.add_shopping_cart, color: Colors.blueAccent),
-                tooltip: 'Tambah ke Keranjang',
-                onPressed: () => _addToCart(product),
+              title: Text(product.name, style: TextStyle(color: isOutOfStock ? Colors.grey.shade700 : Colors.black87)),
+              subtitle: Text(
+                'Rp ${product.price.toStringAsFixed(0)} | Stok: ${product.stock}',
+                style: TextStyle(fontWeight: FontWeight.w500, color: isOutOfStock ? Colors.red.shade700 : Colors.black54),
               ),
+              trailing: isOutOfStock
+                  ? const Chip(label: Text('Habis'), backgroundColor: Color(0xFFfbe9e7), labelStyle: TextStyle(color: Color(0xFFc63f31)))
+                  : IconButton(
+                      icon: const Icon(Icons.add_shopping_cart, color: Colors.blueAccent),
+                      tooltip: 'Tambah ke Keranjang',
+                      onPressed: () => _addToCart(product),
+                    ),
             ),
           );
         },
@@ -240,11 +221,7 @@ Future<void> _findProductByBarcode(String barcode) async {
     Widget productListSection = Expanded(
       flex: isTwoColumnLayout ? 2 : 1,
       child: Container(
-        padding: const EdgeInsets.all(8.0),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -255,71 +232,39 @@ Future<void> _findProductByBarcode(String barcode) async {
                 decoration: InputDecoration(
                   hintText: 'Cari produk atau pindai barcode...',
                   prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton( // <-- TAMBAHKAN TOMBOL SCAN
+                  suffixIcon: IconButton(
                     icon: const Icon(Icons.qr_code_scanner_outlined),
                     tooltip: 'Pindai Barcode',
                     onPressed: () async {
-                      // Navigasi ke halaman scanner dan tunggu hasilnya
-                      final String? barcode = await Navigator.push<String>(
-                        context,
-                        MaterialPageRoute(builder: (context) => const BarcodeScannerPage()),
-                      );
-
+                      final String? barcode = await Navigator.push<String>(context, MaterialPageRoute(builder: (context) => const BarcodeScannerPage()));
                       if (barcode != null && barcode.isNotEmpty) {
-                        // TODO: Panggil API untuk mencari produk berdasarkan barcode ini
-                        print("Hasil scan diterima di POSPage: $barcode");
-                        // Hapus pencarian manual sebelumnya
-                        _searchController.clear();
-                        // Tampilkan hasil scan di kolom pencarian
-                        _searchController.text = barcode; 
-                        // Anda bisa langsung panggil API di sini atau biarkan _onSearchChanged yang menanganinya
-                        // jika backend diatur untuk mencari berdasarkan SKU/nama/barcode.
-                        // Untuk sekarang, kita akan membuat fungsi baru.
-                        _findProductByBarcode(barcode);
+                        _searchController.text = barcode;
                       }
                     },
                   ),
                 ),
               ),
             ),
-            const Divider(),
-            Expanded(child: productListContent), // Tampilkan konten produk di sini
+            const Divider(height: 1),
+            Expanded(child: productListContent),
           ],
         ),
       ),
     );
 
-    // --- Widget shoppingCartSection, Scaffold, Drawer tetap sama ---
-    // (Salin dari kode sebelumnya, tidak ada perubahan signifikan di bagian ini
-    // kecuali memastikan menggunakan model Product dan CartItem yang konsisten)
     Widget shoppingCartSection = Expanded(
       flex: 1,
       child: Container(
         padding: const EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-           boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(-3, 0),
-            ),
-          ],
-        ),
+        decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), spreadRadius: 1, blurRadius: 5, offset: const Offset(-3, 0))]),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Keranjang Belanja (${_shoppingCart.length})',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            Text('Keranjang Belanja (${_shoppingCart.length})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const Divider(height: 20),
             Expanded(
               child: _shoppingCart.isEmpty
-                  ? const Center(
-                      child: Text('Keranjang masih kosong.', style: TextStyle(color: Colors.grey)),
-                    )
+                  ? const Center(child: Text('Keranjang masih kosong.', style: TextStyle(color: Colors.grey)))
                   : ListView.builder(
                       itemCount: _shoppingCart.length,
                       itemBuilder: (context, index) {
@@ -329,21 +274,13 @@ Future<void> _findProductByBarcode(String barcode) async {
                           margin: const EdgeInsets.symmetric(vertical: 4.0),
                           child: ListTile(
                             title: Text(cartItem.product.name, style: const TextStyle(fontSize: 14)),
-                            subtitle: Text(
-                                'Rp ${cartItem.product.price.toStringAsFixed(0)} x ${cartItem.quantity} = Rp ${cartItem.totalPrice.toStringAsFixed(0)}'),
+                            subtitle: Text('Rp ${cartItem.product.price.toStringAsFixed(0)} x ${cartItem.quantity}'),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
-                                  onPressed: () => _decrementQuantity(cartItem),
-                                  tooltip: 'Kurangi',
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add_circle_outline, color: Colors.green, size: 20),
-                                  onPressed: () => _incrementQuantity(cartItem),
-                                  tooltip: 'Tambah',
-                                ),
+                                IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 22), onPressed: () => _decrementQuantity(cartItem)),
+                                Text('${cartItem.quantity}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.green, size: 22), onPressed: () => _incrementQuantity(cartItem)),
                               ],
                             ),
                           ),
@@ -352,66 +289,16 @@ Future<void> _findProductByBarcode(String barcode) async {
                     ),
             ),
             const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Subtotal:', style: TextStyle(fontSize: 16)),
-                Text('Rp ${_calculateTotal().toStringAsFixed(0)}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Diskon:', style: TextStyle(fontSize: 16)),
-                Text('Rp 0',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total:',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                Text('Rp ${_calculateTotal().toStringAsFixed(0)}',
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent)),
-              ],
-            ),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text('Total:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Rp ${_calculateTotal().toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+            ]),
             const SizedBox(height: 20),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  textStyle: const TextStyle(fontSize: 18)),
-              onPressed: _shoppingCart.isEmpty
-                  ? null
-                  : () async { // Jadikan async untuk menangani hasil dari Navigator.pushNamed
-                      final result = await Navigator.pushNamed(
-                        context,
-                        '/checkout',
-                        arguments: {
-                          'cartItems': List<CartItem>.from(_shoppingCart), // Kirim salinan agar tidak termodifikasi langsung
-                          'totalAmount': _calculateTotal(),
-                        },
-                      );
-
-                      // Jika CheckoutPage mengirim 'true' saat pop (setelah pembayaran sukses)
-                      if (result == true) {
-                        setState(() {
-                          _shoppingCart.clear();
-                          _searchController.clear(); // Bersihkan juga pencarian
-                          // Mungkin juga refresh daftar produk jika ada perubahan stok
-                          // _fetchInitialProducts(); // Jika perlu reload data produk
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Transaksi baru siap! Keranjang telah dikosongkan.')),
-                        );
-                      }
-                    },
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16.0), textStyle: const TextStyle(fontSize: 18)),
+              onPressed: _shoppingCart.isEmpty ? null : () {
+                Navigator.pushNamed(context, '/checkout', arguments: {'cartItems': List<CartItem>.from(_shoppingCart), 'totalAmount': _calculateTotal()});
+              },
               child: const Text('Bayar'),
             ),
           ],
@@ -421,7 +308,7 @@ Future<void> _findProductByBarcode(String barcode) async {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Alfa Optik'),
+        title: const Text('Alfa Optik POS'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -430,7 +317,7 @@ Future<void> _findProductByBarcode(String barcode) async {
           ),
         ],
       ),
-    drawer: const AppDrawer(),
+      drawer: const AppDrawer(),
       body: isTwoColumnLayout
           ? Row(children: [productListSection, shoppingCartSection])
           : Column(children: [Expanded(child: productListSection), SizedBox(height: MediaQuery.of(context).size.height * 0.45, child: shoppingCartSection)]),

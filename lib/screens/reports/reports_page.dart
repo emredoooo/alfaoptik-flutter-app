@@ -2,6 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/user_session.dart';
+import '../../services/branch_service.dart';
+import '../../services/report_service.dart'; // PASTIKAN IMPORT INI ADA
+
 // Fungsi format mata uang
 String formatCurrency(double amount, {String locale = 'id_ID', String symbol = 'Rp '}) {
   final format = NumberFormat.currency(locale: locale, symbol: symbol, decimalDigits: 0);
@@ -16,96 +20,169 @@ class ReportsPage extends StatefulWidget {
 }
 
 class _ReportsPageState extends State<ReportsPage> {
-  DateTime _selectedDate = DateTime.now();
+  DateTime? _startDate;
+  DateTime? _endDate;
+  dynamic _selectedBranch;
+  
   bool _isLoading = false;
+  bool _isLoadingBranches = false;
+  List<dynamic> _branches = [];
   Map<String, dynamic>? _reportData;
+  final BranchService _branchService = BranchService();
+  final ReportService _reportService = ReportService();
 
-  void _showDatePicker() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fungsi pilih bulan/tahun akan dibuat nanti.')),
-    );
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _startDate = DateTime(now.year, now.month, 1);
+    _endDate = now;
+
+    if (UserSession.role == 'Admin Pusat') {
+      _loadBranches();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _generateReport());
+    }
   }
 
-  void _generateReport() {
+  Future<void> _loadBranches() async {
+    setState(() => _isLoadingBranches = true);
+    try {
+      final branchesData = await _branchService.getBranches();
+      if (mounted) setState(() => _branches = branchesData);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat cabang: ${e.toString()}')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingBranches = false);
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context, bool isStartDate) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: (isStartDate ? _startDate : _endDate) ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStartDate) {
+          _startDate = picked;
+        } else {
+          _endDate = picked;
+        }
+      });
+    }
+  }
+
+  void _generateReport() async {
+    if (_startDate == null || _endDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Silakan pilih rentang tanggal.')));
+      return;
+    }
+    
     setState(() {
       _isLoading = true;
-      _reportData = null; // Kosongkan data lama saat laporan baru dibuat
+      _reportData = null; 
     });
-    print('Membuat laporan untuk: ${DateFormat('MMMM yyyy', 'id_ID').format(_selectedDate)}');
-    
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) { // Cek apakah widget masih ada di tree
-        setState(() {
-          _reportData = {
-            "summary": {
-              "total_revenue": 15750000.0,
-              "total_transactions": 45,
-              "average_transaction_value": 350000.0,
-            },
-            "top_selling_products": [
-              {"product_name": "Lensa Progresif DigitalMax", "total_quantity_sold": 10},
-              {"product_name": "Frame Elegan Visto 501", "total_quantity_sold": 8},
-              {"product_name": "Kacamata Hitam Polarized Cruiser", "total_quantity_sold": 7},
-              {"product_name": "Lensa Kontak Bening Harian AquaDay", "total_quantity_sold": 5},
-              {"product_name": "Cairan Pembersih Lensa OptiFresh 120ml", "total_quantity_sold": 4},
-            ],
-            "daily_sales": [],
-          };
-          _isLoading = false;
-        });
+
+    String? branchCodeForApi;
+    if (UserSession.role != 'Admin Pusat') {
+        branchCodeForApi = UserSession.branchCode;
+        // PENGAMAN: Sama seperti di halaman riwayat
+        if (branchCodeForApi == null || branchCodeForApi.isEmpty) {
+            print("Error: Admin Cabang ini tidak memiliki branch code di sesinya.");
+            if(mounted) {
+                setState(() => _isLoading = false);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Gagal memuat laporan: Akun Anda tidak terhubung dengan cabang.'),
+                    backgroundColor: Colors.red,
+                ));
+            }
+            return;
+        }
+    } else {
+        // Untuk admin pusat, ambil dari dropdown
+        branchCodeForApi = _selectedBranch?['branch_code'];
+    }
+
+    try {
+      final data = await _reportService.getSalesReport(
+        startDate: _startDate!,
+        endDate: _endDate!,
+        branchCode: branchCodeForApi,
+      );
+
+      if (mounted) {
+        setState(() { _reportData = data; });
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isAdminPusat = UserSession.role == 'Admin Pusat';
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Laporan Penjualan'),
-      ),
+      appBar: AppBar(title: const Text('Laporan Penjualan')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Pilih Periode Laporan', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
+            Text('Filter Laporan', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            
             Row(
               children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: _showDatePicker,
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Bulan & Tahun',
-                        prefixIcon: Icon(Icons.calendar_today_outlined),
-                      ),
-                      child: Text(
-                        DateFormat('MMMM yyyy', 'id_ID').format(_selectedDate),
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ),
-                ),
+                Expanded(child: InkWell(onTap: () => _selectDate(context, true), child: InputDecorator(decoration: const InputDecoration(labelText: 'Dari Tanggal'), child: Text(_startDate != null ? DateFormat('dd MMM yy').format(_startDate!) : 'Pilih')))),
                 const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _generateReport,
-                  icon: const Icon(Icons.bar_chart),
-                  label: const Text('Tampilkan'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                  ),
-                ),
+                Expanded(child: InkWell(onTap: () => _selectDate(context, false), child: InputDecorator(decoration: const InputDecoration(labelText: 'Sampai Tanggal'), child: Text(_endDate != null ? DateFormat('dd MMM yy').format(_endDate!) : 'Pilih')))),
               ],
             ),
+            const SizedBox(height: 16),
+
+            if (isAdminPusat)
+              _isLoadingBranches
+                  ? const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()))
+                  : DropdownButtonFormField<dynamic>(
+                      value: _selectedBranch,
+                      decoration: const InputDecoration(labelText: 'Pilih Cabang'),
+                      hint: const Text('Semua Cabang'),
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem<dynamic>(value: null, child: Text('Semua Cabang')),
+                        ..._branches.map<DropdownMenuItem<dynamic>>((branch) => DropdownMenuItem<dynamic>(value: branch, child: Text(branch['branch_name']))).toList(),
+                      ],
+                      onChanged: (value) => setState(() => _selectedBranch = value),
+                    )
+            else
+              InputDecorator(
+                decoration: const InputDecoration(labelText: 'Laporan untuk Cabang', enabled: false),
+                child: Text(UserSession.branchName ?? 'N/A', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              ),
+
+            const SizedBox(height: 24),
+            SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: _isLoading ? null : _generateReport, icon: _isLoading ? Container(width: 20, height: 20, padding: const EdgeInsets.all(2.0), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : const Icon(Icons.bar_chart), label: const Text('Tampilkan Laporan'), style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)))),
             const Divider(height: 32, thickness: 1),
+            
             if (_isLoading)
               const Center(heightFactor: 5, child: CircularProgressIndicator())
             else if (_reportData == null)
-              const Center(
-                heightFactor: 5,
-                child: Text('Silakan pilih periode dan tampilkan laporan.'),
-              )
+              const Center(heightFactor: 5, child: Text('Silakan pilih filter dan tampilkan laporan.'))
             else
               _buildReportContent(),
           ],
@@ -114,86 +191,53 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 
-  // Widget baru untuk membangun konten laporan jika data ada
   Widget _buildReportContent() {
+    final summary = _reportData?['summary'] as Map<String, dynamic>? ?? {};
+    final topProducts = _reportData?['top_selling_products'] as List? ?? [];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Ringkasan Bulan ${DateFormat('MMMM yyyy', 'id_ID').format(_selectedDate)}',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text('Ringkasan Laporan', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
+          mainAxisSpacing: 12, crossAxisSpacing: 12,
           childAspectRatio: 2.0,
           children: [
-            _buildSummaryCard(
-              'Total Omzet',
-              formatCurrency(_reportData!['summary']['total_revenue'] ?? 0.0),
-              Icons.monetization_on_outlined, Colors.green,
-            ),
-            _buildSummaryCard(
-              'Jumlah Transaksi',
-              '${_reportData!['summary']['total_transactions'] ?? 0} Transaksi',
-              Icons.receipt_long_outlined, Colors.blue,
-            ),
-            _buildSummaryCard(
-              'Rata-rata/Transaksi',
-              formatCurrency(_reportData!['summary']['average_transaction_value'] ?? 0.0),
-              Icons.trending_up_outlined, Colors.orange,
-            ),
+            _buildSummaryCard('Total Omzet', formatCurrency((summary['total_revenue'] as num?)?.toDouble() ?? 0.0), Icons.monetization_on_outlined, Colors.green),
+            _buildSummaryCard('Jml Transaksi', '${summary['total_transactions'] ?? 0}', Icons.receipt_long_outlined, Colors.blue),
+            _buildSummaryCard('Rata-rata/Trx', formatCurrency((summary['average_transaction_value'] as num?)?.toDouble() ?? 0.0), Icons.trending_up_outlined, Colors.orange),
           ],
         ),
         const Divider(height: 32, thickness: 1),
-        Text('5 Produk Terlaris', style: Theme.of(context).textTheme.titleLarge),
+        Text('Produk Terlaris', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 12),
         Card(
           elevation: 1,
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: List.generate(
-              _reportData!['top_selling_products'].length,
-              (index) {
-                final product = _reportData!['top_selling_products'][index];
-                return ListTile(
-                  leading: CircleAvatar(child: Text('${index + 1}')),
-                  title: Text(product['product_name']),
-                  trailing: Text('${product['total_quantity_sold']} Pcs', style: const TextStyle(fontWeight: FontWeight.bold)),
-                );
-              },
-            ),
-          ),
-        ),
-        const Divider(height: 32, thickness: 1),
-        Text('Grafik Penjualan Harian', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 12),
-        Card(
-          elevation: 1,
-          child: Container(
-            height: 250,
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            child: const Center(
-              child: Text(
-                'Grafik akan ditampilkan di sini.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-            ),
-          ),
+          child: topProducts.isEmpty
+              ? const ListTile(title: Text('Tidak ada data produk terjual pada periode ini.'))
+              : Column(
+                  children: List.generate(
+                    topProducts.length,
+                    (index) {
+                      final product = topProducts[index];
+                      return ListTile(
+                        leading: CircleAvatar(child: Text('${index + 1}')),
+                        title: Text(product['product_name'] ?? 'Nama Produk Tidak Ada'),
+                        trailing: Text('${product['total_quantity_sold'] ?? 0} Pcs', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      );
+                    },
+                  ),
+                ),
         ),
       ],
     );
   }
 
-  // =================================================================
-  // ===         FUNGSI YANG DIPERBAIKI - TANPA SPACER           ===
-  // =================================================================
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
     return Card(
       elevation: 2,
@@ -201,20 +245,16 @@ class _ReportsPageState extends State<ReportsPage> {
         padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          // Menggunakan MainAxisAlignment.spaceBetween untuk mendorong konten
-          // ke atas dan ke bawah kartu secara otomatis.
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Gunakan Expanded agar teks tidak overflow jika judulnya panjang
-                Expanded(child: Text(title, style: Theme.of(context).textTheme.bodyLarge, overflow: TextOverflow.ellipsis)),
-                Icon(icon, color: color),
+                Expanded(child: Text(title, style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
+                Icon(icon, color: color, size: 20),
               ],
             ),
-            // Tidak perlu Spacer lagi di sini
-            Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           ],
         ),
       ),

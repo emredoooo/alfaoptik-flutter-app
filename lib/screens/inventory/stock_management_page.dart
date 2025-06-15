@@ -1,8 +1,10 @@
-// lib/screens/inventory/stock_management_page.dart
-import 'package:alfaoptik/services/product_service.dart';
+import 'package:alfaoptik/screens/inventory/add_stock_page.dart'; // Import halaman tambah stok
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../models/user_session.dart';
+import '../../services/branch_service.dart';
+import '../../services/product_service.dart';
 
 String formatCurrency(double amount) => 'Rp ${NumberFormat('#,###', 'id_ID').format(amount)}';
 
@@ -15,17 +17,23 @@ class StockManagementPage extends StatefulWidget {
 
 class _StockManagementPageState extends State<StockManagementPage> {
   final ProductService _productService = ProductService();
-  late Future<List<Product>> _inventoryFuture;
+  final BranchService _branchService = BranchService();
+  final TextEditingController _searchController = TextEditingController();
+
   List<Product> _allProducts = [];
   List<Product> _filteredProducts = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  final TextEditingController _searchController = TextEditingController();
+  List<dynamic> _branches = [];
+  dynamic _selectedBranch;
+  bool _isLoadingBranches = false;
 
   @override
   void initState() {
     super.initState();
-    _inventoryFuture = _fetchInventory();
     _searchController.addListener(_filterInventory);
+    _initializeData();
   }
 
   @override
@@ -35,21 +43,69 @@ class _StockManagementPageState extends State<StockManagementPage> {
     super.dispose();
   }
 
-  Future<List<Product>> _fetchInventory() async {
+  Future<void> _initializeData() async {
+    if (UserSession.role == 'Admin Pusat') {
+      await _loadBranches();
+      if (_branches.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _selectedBranch = _branches[0];
+          });
+          _fetchInventory();
+        }
+      }
+    } else {
+      _fetchInventory();
+    }
+  }
+
+  Future<void> _loadBranches() async {
+    setState(() => _isLoadingBranches = true);
     try {
-      // Ambil produk berdasarkan branchCode dari user yang sedang login
-      final products = await _productService.fetchProducts(
-        branchCode: UserSession.branchCode, // Gunakan data dari sesi
-      );
+      final branchesData = await _branchService.getBranches();
+      if (mounted) setState(() => _branches = branchesData);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal memuat cabang: ${e.toString()}')));
+    } finally {
+      if (mounted) setState(() => _isLoadingBranches = false);
+    }
+  }
+
+  Future<void> _fetchInventory() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    String? branchCodeToFetch;
+    if (UserSession.role == 'Admin Pusat') {
+      branchCodeToFetch = _selectedBranch?['branch_code'];
+    } else {
+      branchCodeToFetch = UserSession.branchCode;
+    }
+
+    if (branchCodeToFetch == null) {
+      if (mounted) {
+        setState(() {
+            _isLoading = false;
+            _errorMessage = UserSession.role == 'Admin Pusat' ? "Silakan pilih cabang terlebih dahulu." : "Kode Cabang tidak ditemukan untuk akun Anda.";
+        });
+      }
+      return;
+    }
+
+    try {
+      final products = await _productService.fetchProducts(branchCode: branchCodeToFetch);
       if (mounted) {
         setState(() {
           _allProducts = products;
           _filteredProducts = products;
         });
       }
-      return products;
     } catch (e) {
-      throw Exception('Gagal memuat data inventaris: ${e.toString()}');
+      if (mounted) setState(() => _errorMessage = e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -64,134 +120,125 @@ class _StockManagementPageState extends State<StockManagementPage> {
     });
   }
 
-  @override
+  // --- FUNGSI BARU UNTUK NAVIGASI ---
+  void _navigateToAddStock(Product product) async {
+    // Tentukan branch_id berdasarkan role
+    int? branchId;
+    if (UserSession.role == 'Admin Pusat') {
+      branchId = _selectedBranch?['branch_id'];
+    } else {
+      final branches = await _branchService.getBranches();
+      final branch = branches.firstWhere((b) => b['branch_code'] == UserSession.branchCode, orElse: () => null);
+      branchId = branch?['branch_id'];
+    }
 
+    if (branchId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak bisa menentukan cabang. Gagal menambah stok.'), backgroundColor: Colors.red));
+      return;
+    }
+    
+    final bool? stockWasUpdated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddStockPage(
+          product: product,
+          branchId: branchId!, // Kirim branchId ke halaman AddStockPage
+        ),
+      ),
+    );
+
+    if (stockWasUpdated == true) {
+      _fetchInventory();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    bool isAdminPusat = UserSession.role == 'Admin Pusat';
     return Scaffold(
-      // AppBar disesuaikan di bagian 'actions'
       appBar: AppBar(
         title: const Text('Manajemen Stok'),
-        // --- KEDUA TOMBOL DITARUH DI SINI ---
-        actions: [
-          // Tombol 1: Tambah Produk Baru (dengan teks agar lebih jelas)
-          TextButton.icon(
-            onPressed: () {
-              Navigator.pushNamed(context, '/addProduct').then((_) {
-                // Refresh daftar inventaris setelah kembali dari halaman tambah produk
-                setState(() {
-                  _inventoryFuture = _fetchInventory();
-                });
-              });
-            },
-            icon: const Icon(Icons.post_add_outlined),
-            label: const Text('Produk Baru'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white, // Menyesuaikan warna dengan tema AppBar
-            ),
-          ),
-
-          // Tombol 2: Tambah Stok (hanya ikon untuk aksi cepat)
-          IconButton(
-            icon: const Icon(Icons.add_shopping_cart),
-            tooltip: 'Tambah Stok',
-            onPressed: () {
-              Navigator.pushNamed(context, '/addStock').then((result) {
-                // Refresh daftar jika penambahan stok berhasil
-                if (result == true) {
-                  setState(() {
-                    _inventoryFuture = _fetchInventory();
-                  });
-                }
-              });
-            },
-          ),
-          const SizedBox(width: 8), // Memberi sedikit jarak di ujung
-        ],
-        // Bagian 'bottom' untuk search bar tidak berubah
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60.0),
+          preferredSize: const Size.fromHeight(120.0),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Cari berdasarkan nama atau SKU...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                if (isAdminPusat)
+                  _isLoadingBranches
+                      ? const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator(color: Colors.white)))
+                      : DropdownButtonFormField<dynamic>(
+                          value: _selectedBranch,
+                          isExpanded: true,
+                          decoration: InputDecoration(labelText: 'Pilih Cabang', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                          items: _branches.map((branch) => DropdownMenuItem<dynamic>(value: branch, child: Text(branch['branch_name']))).toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedBranch = value);
+                            _fetchInventory();
+                          },
+                        ),
+                if(isAdminPusat) const SizedBox(height: 8),
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari berdasarkan nama atau SKU...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  ),
                 ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              ),
+              ],
             ),
           ),
         ),
       ),
-      // Body tidak ada perubahan
-      body: RefreshIndicator(
-        onRefresh: _fetchInventory,
-        child: FutureBuilder<List<Product>>(
-          future: _inventoryFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text('Error: ${snapshot.error}', textAlign: TextAlign.center),
-                ),
-              );
-            }
-
-            if (_filteredProducts.isEmpty) {
-              return const Center(
-                child: Text('Tidak ada produk ditemukan.'),
-              );
-            }
-
-            return ListView.builder(
-              itemCount: _filteredProducts.length,
-              itemBuilder: (context, index) {
-                final item = _filteredProducts[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('SKU: ${item.product_code ?? 'N/A'}'),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Stok: ${item.stock}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: item.stock < 10 ? Colors.red.shade700 : Colors.green.shade800,
-                          ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(child: Text('Error: $_errorMessage'))
+              : RefreshIndicator(
+                  onRefresh: _fetchInventory,
+                  child: _filteredProducts.isEmpty
+                      ? const Center(child: Text('Tidak ada produk ditemukan.'))
+                      : ListView.builder(
+                          itemCount: _filteredProducts.length,
+                          itemBuilder: (context, index) {
+                            final item = _filteredProducts[index];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text('SKU: ${item.product_code ?? 'N/A'}'),
+                                // --- PERUBAHAN UTAMA DI SINI ---
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text('Stok: ${item.stock}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: item.stock < 10 ? Colors.red.shade700 : Colors.green.shade800)),
+                                        const SizedBox(height: 4),
+                                        Text(formatCurrency(item.price)),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 16),
+                                    IconButton(
+                                      icon: const Icon(Icons.add_box_outlined),
+                                      color: Theme.of(context).primaryColor,
+                                      tooltip: 'Tambah Stok',
+                                      onPressed: () => _navigateToAddStock(item),
+                                    )
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        const SizedBox(height: 4),
-                        Text(formatCurrency(item.price)),
-                      ],
-                    ),
-                    onTap: () {
-                      // TODO: Navigasi ke halaman detail/edit produk
-                    },
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ),
-      // --- DIHAPUS ---
-      // floatingActionButton: FloatingActionButton.extended(...)
+                ),
     );
   }
 }

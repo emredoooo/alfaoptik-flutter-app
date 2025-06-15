@@ -3,11 +3,14 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AuthService {
-  // Sesuaikan URL jika perlu
-  final String _baseUrl = 'http://localhost:3000/api';
+  // Kita gunakan 127.0.0.1 agar lebih konsisten
+  final String _baseUrl = 'http://127.0.0.1:3000/api';
 
-  // Fungsi untuk melakukan login
   Future<Map<String, dynamic>> login(String username, String password) async {
+
+    print("--- DEBUG FLUTTER: Mengirim user: [$username], pass: [$password] ---");
+    // ----------------------------------------------------------------
+
     final String apiUrl = '$_baseUrl/auth/login';
     print('Mencoba login ke: $apiUrl');
 
@@ -26,18 +29,19 @@ class AuthService {
       final responseBody = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // 200 OK: Login berhasil, kembalikan data user
-        print('Login berhasil untuk user: ${responseBody['user']['username']}');
         return responseBody['user'];
       } else {
-        // Jika server mengembalikan error (misal: 401 Unauthorized)
-        // Lempar exception dengan pesan dari server
+        // Jika server menolak (status code bukan 200), lemparkan pesan dari server.
         throw Exception(responseBody['message'] ?? 'Gagal untuk login.');
       }
     } catch (e) {
-      // Tangani error koneksi atau lainnya
+      // Tangani error koneksi atau lainnya.
       print('Error saat menghubungi service auth: $e');
-      throw Exception('Tidak dapat terhubung ke server.');
+      if (e.toString().contains('Failed host lookup') || e.toString().contains('Connection refused')) {
+         throw Exception('Tidak dapat terhubung ke server.');
+      }
+      // Melempar kembali pesan error yang lebih bersih.
+      throw Exception(e.toString().replaceFirst("Exception: ", ""));
     }
   }
 }

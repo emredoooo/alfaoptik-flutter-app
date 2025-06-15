@@ -93,7 +93,12 @@ class ProductService {
   }
   // --- BATAS FUNGSI ---
 
-  Future<void> addStock({required dynamic productId, required int quantity}) async {
+  Future<void> addStock({
+    required dynamic productId,
+    required int quantity,
+    required int branchId, // TAMBAHKAN PARAMETER INI
+  }) async {
+    // Endpoint di server sudah kita siapkan untuk ini
     final String apiUrl = '$_baseUrl/products/$productId/stock';
     try {
       final response = await http.patch(
@@ -101,8 +106,10 @@ class ProductService {
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
+        // Kirim juga branch_id di body agar server tahu cabang mana yang diupdate
         body: jsonEncode(<String, int>{
           'quantity': quantity,
+          'branch_id': branchId, // TAMBAHKAN INI DI BODY
         }),
       );
       if (response.statusCode != 200) {
@@ -111,6 +118,5 @@ class ProductService {
     } catch (e) {
       throw Exception('Gagal terhubung ke server untuk memperbarui stok.');
     }
-  }
-
+    }
 }

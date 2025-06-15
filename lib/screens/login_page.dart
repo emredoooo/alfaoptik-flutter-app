@@ -39,6 +39,10 @@ class _LoginPageState extends State<LoginPage> {
           _passwordController.text,
         );
 
+         print("--- DEBUG LOGIN PAGE: Menerima data user berikut dari service ---");
+      print(userData);
+      print("---------------------------------------------------------------");
+
         // Jika berhasil, simpan data ke session
         UserSession.setData(userData);
         
