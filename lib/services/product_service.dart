@@ -40,7 +40,9 @@ class Product {
       brand: json['brand'] as String?,
       description: json['description'] as String?,
       price: (json['price'] as num).toDouble(),
-      purchase_price: json['purchase_price'] != null ? (json['purchase_price'] as num).toDouble() : null,
+      purchase_price: json['purchase_price'] != null
+          ? (json['purchase_price'] as num).toDouble()
+          : null,
       unit: json['unit'] as String?,
       track_serial_batch: json['track_serial_batch'] as bool?,
       image_url: json['image_url'] as String?,
@@ -50,7 +52,7 @@ class Product {
 }
 
 class ProductService {
-  final String _baseUrl = 'http://localhost:3000/api';
+  final String _baseUrl = 'https://alfa.aiti.biz.id/API';
 
   Future<List<Product>> fetchProducts({String? branchCode}) async {
     String apiUrl = '$_baseUrl/products?branch_code=${branchCode ?? 'TBB'}';
@@ -59,7 +61,9 @@ class ProductService {
       if (response.statusCode == 200) {
         List<dynamic> body = jsonDecode(response.body);
         List<Product> products = body
-            .map((dynamic item) => Product.fromJson(item as Map<String, dynamic>))
+            .map(
+              (dynamic item) => Product.fromJson(item as Map<String, dynamic>),
+            )
             .toList();
         return products;
       } else {
@@ -71,7 +75,9 @@ class ProductService {
   }
 
   // --- INILAH FUNGSI YANG PENTING ---
-  Future<Map<String, dynamic>> addProduct(Map<String, dynamic> productData) async {
+  Future<Map<String, dynamic>> addProduct(
+    Map<String, dynamic> productData,
+  ) async {
     final String apiUrl = '$_baseUrl/products';
     try {
       final response = await http.post(
@@ -118,5 +124,5 @@ class ProductService {
     } catch (e) {
       throw Exception('Gagal terhubung ke server untuk memperbarui stok.');
     }
-    }
+  }
 }

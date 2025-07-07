@@ -4,11 +4,12 @@ import 'package:http/http.dart' as http;
 
 class AuthService {
   // Kita gunakan 127.0.0.1 agar lebih konsisten
-  final String _baseUrl = 'http://127.0.0.1:3000/api';
+  final String _baseUrl = 'https://alfa.aiti.biz.id/API';
 
   Future<Map<String, dynamic>> login(String username, String password) async {
-
-    print("--- DEBUG FLUTTER: Mengirim user: [$username], pass: [$password] ---");
+    print(
+      "--- DEBUG FLUTTER: Mengirim user: [$username], pass: [$password] ---",
+    );
     // ----------------------------------------------------------------
 
     final String apiUrl = '$_baseUrl/auth/login';
@@ -37,8 +38,9 @@ class AuthService {
     } catch (e) {
       // Tangani error koneksi atau lainnya.
       print('Error saat menghubungi service auth: $e');
-      if (e.toString().contains('Failed host lookup') || e.toString().contains('Connection refused')) {
-         throw Exception('Tidak dapat terhubung ke server.');
+      if (e.toString().contains('Failed host lookup') ||
+          e.toString().contains('Connection refused')) {
+        throw Exception('Tidak dapat terhubung ke server.');
       }
       // Melempar kembali pesan error yang lebih bersih.
       throw Exception(e.toString().replaceFirst("Exception: ", ""));

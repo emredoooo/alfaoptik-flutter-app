@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class UserService {
-  final String _baseUrl = 'http://localhost:3000/api';
+  final String _baseUrl = 'https://alfa.aiti.biz.id/API';
 
   /// Mengambil daftar semua pengguna dari server
   Future<List<dynamic>> getUsers() async {
@@ -44,7 +44,8 @@ class UserService {
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
         body: jsonEncode(userData),
       );
-      if (response.statusCode != 201) { // 201 Created
+      if (response.statusCode != 201) {
+        // 201 Created
         throw Exception('Gagal membuat pengguna: ${response.body}');
       }
     } catch (e) {
@@ -61,7 +62,8 @@ class UserService {
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
         body: jsonEncode(userData),
       );
-      if (response.statusCode != 200) { // 200 OK
+      if (response.statusCode != 200) {
+        // 200 OK
         throw Exception('Gagal memperbarui pengguna: ${response.body}');
       }
     } catch (e) {

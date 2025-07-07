@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 class BranchService {
   // TODO: Ganti dengan URL base API Anda dari file konfigurasi
-  final String _baseUrl = 'http://localhost:3000/api';
+  final String _baseUrl = 'https://alfa.aiti.biz.id/API';
 
   /// Mengambil daftar semua cabang dari server
   Future<List<dynamic>> getBranches() async {

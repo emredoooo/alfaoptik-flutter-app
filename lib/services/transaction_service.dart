@@ -5,10 +5,13 @@ import 'package:http/http.dart' as http;
 class TransactionService {
   // Pastikan URL ini sesuai dengan setup Anda (10.0.2.2 untuk Android Emulator)
   //final String _baseUrl = 'http://10.0.2.2:3000/api';
-  final String _baseUrl = 'http://localhost:3000/api'; // Untuk Flutter Web/iOS Sim
+  final String _baseUrl =
+      'https://alfa.aiti.biz.id/API'; // Untuk Flutter Web/iOS Sim
 
   // Mengirim data transaksi ke backend untuk disimpan
-  Future<Map<String, dynamic>> saveTransaction(Map<String, dynamic> transactionData) async {
+  Future<Map<String, dynamic>> saveTransaction(
+    Map<String, dynamic> transactionData,
+  ) async {
     final String apiUrl = '$_baseUrl/transactions';
     print('Mengirim transaksi ke: $apiUrl'); // Untuk debugging
 
@@ -30,7 +33,9 @@ class TransactionService {
         // Jika server mengembalikan error
         print('Gagal menyimpan transaksi. Status code: ${response.statusCode}');
         print('Response body: ${response.body}');
-        throw Exception('Gagal menyimpan transaksi (Status: ${response.statusCode})');
+        throw Exception(
+          'Gagal menyimpan transaksi (Status: ${response.statusCode})',
+        );
       }
     } catch (e) {
       // Tangani error koneksi atau lainnya
